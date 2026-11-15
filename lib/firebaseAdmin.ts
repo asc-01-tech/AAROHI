@@ -1,14 +1,13 @@
 // lib/firebaseAdmin.ts
-// Singleton Firebase Admin SDK — reused across all Vercel invocations.
-// Guards against re-initialization in hot reload (dev) or multiple imports.
+// Singleton Firebase Admin SDK (Firestore) + native RS256 Custom Token minter.
+// Eliminates jwks-rsa CommonJS/ESM bundling conflicts on Vercel Node 26.
 
 import { getApps, initializeApp, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getAuth, Auth } from 'firebase-admin/auth';
+import { createSign } from 'crypto';
 
 let app: App;
 let db: Firestore;
-let auth: Auth;
 
 function cleanPrivateKey(key: string | undefined): string {
   if (!key) return '';
@@ -59,11 +58,32 @@ export function getAdminDb(): Firestore {
   return db;
 }
 
-export function getAdminAuth(): Auth {
-  if (!auth) {
-    app  = getAdminApp();
-    auth = getAuth(app);
-  }
-  return auth;
-}
+/**
+ * Mint a Firebase custom token signed with the service account's private key.
+ * Uses native Node crypto RS256 (no external auth library needed).
+ */
+export function createCustomToken(uid: string, claims: Record<string, unknown> = {}): string {
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || '';
+  const rawKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  const privateKey = cleanPrivateKey(rawKey);
 
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({
+      iss: clientEmail,
+      sub: clientEmail,
+      aud: 'https://identitytoolkit.googleapis.com/google.identitytoolkit.v1.IdentityToolkit',
+      iat: now,
+      exp: now + 3600, // 1 hour
+      uid,
+      claims,
+    })
+  ).toString('base64url');
+
+  const sign = createSign('RSA-SHA256');
+  sign.update(`${header}.${payload}`);
+  const signature = sign.sign(privateKey, 'base64url');
+
+  return `${header}.${payload}.${signature}`;
+}

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { scrypt, timingSafeEqual, createHash } from 'crypto';
 import { promisify } from 'util';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, createCustomToken } from '@/lib/firebaseAdmin';
 import { signSession, setSessionCookie } from '@/lib/session';
 import { withTiming } from '@/lib/withTiming';
 
@@ -60,7 +60,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const db        = getAdminDb();
-    const adminAuth = getAdminAuth();
     const familyRef = db.collection('families').doc(familyId);
 
     // Rate limit check
@@ -111,7 +110,7 @@ export async function POST(req: NextRequest) {
     const memberId  = memberDoc.id;
 
     // Mint Firebase custom token
-    const firebaseToken = await adminAuth.createCustomToken(memberId, {
+    const firebaseToken = createCustomToken(memberId, {
       familyId,
       memberId,
       role,

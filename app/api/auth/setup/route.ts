@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { scrypt, randomBytes } from 'crypto';
 import { promisify } from 'util';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, createCustomToken } from '@/lib/firebaseAdmin';
 import { signSession, setSessionCookie } from '@/lib/session';
 import { withTiming } from '@/lib/withTiming';
 
@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const db        = getAdminDb();
-    const adminAuth = getAdminAuth();
     const familyRef = db.collection('families').doc(); // auto-id
     const familyId  = familyRef.id;
 
@@ -119,7 +118,7 @@ export async function POST(req: NextRequest) {
     await batch.commit();
 
     // Mint Firebase custom token for the caretaker (who just set up)
-    const firebaseToken = await adminAuth.createCustomToken(caretakerRef.id, {
+    const firebaseToken = createCustomToken(caretakerRef.id, {
       familyId,
       memberId: caretakerRef.id,
       role:     'caretaker',
