@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 const COOKIE_NAME = 'cc_session';
-const MAX_AGE    = 60 * 60 * 24 * 30; // 30 days — persistent elder session
+const MAX_AGE = 60 * 60 * 24 * 30; // 30 days — persistent elder session
 
 export interface SessionPayload extends JWTPayload {
   familyId: string;
@@ -60,10 +60,10 @@ export async function getServerSession(): Promise<SessionPayload | null> {
 export function setSessionCookie(res: NextResponse, token: string): void {
   res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge:   MAX_AGE,
-    path:     '/',
+    maxAge: MAX_AGE,
+    path: '/',
   });
 }
 

@@ -32,7 +32,9 @@ async function hashPasscode(passcode: string): Promise<string> {
   return `${salt}:${hash.toString('hex')}`;
 }
 
-export const POST = withTiming('auth/setup', async (req: NextRequest) => {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
   let body: unknown;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
@@ -145,5 +147,5 @@ export const POST = withTiming('auth/setup', async (req: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}
 

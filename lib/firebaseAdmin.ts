@@ -13,18 +13,16 @@ let auth: Auth;
 function cleanPrivateKey(key: string | undefined): string {
   if (!key) return '';
   let cleaned = key.trim();
-  // Strip surrounding quotes if the user pasted them in Vercel
-  if (
+  while (
     (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
     (cleaned.startsWith("'") && cleaned.endsWith("'"))
   ) {
     cleaned = cleaned.slice(1, -1).trim();
   }
-  // Replace escaped \n with actual newlines
   return cleaned.replace(/\\n/g, '\n');
 }
 
-function getAdminApp(): App {
+export function getAdminApp(): App {
   if (getApps().length > 0) {
     return getApps()[0];
   }
@@ -41,17 +39,22 @@ function getAdminApp(): App {
 
   const privateKey = cleanPrivateKey(rawKey);
 
-  return initializeApp({
+  app = initializeApp({
     credential: cert({ projectId, clientEmail, privateKey }),
     projectId,
   });
+  return app;
 }
 
 export function getAdminDb(): Firestore {
   if (!db) {
     app = getAdminApp();
-    db  = getFirestore(app);
-    db.settings({ ignoreUndefinedProperties: true });
+    try {
+      db = getFirestore(app);
+      db.settings({ ignoreUndefinedProperties: true });
+    } catch {
+      db = getFirestore(app);
+    }
   }
   return db;
 }
