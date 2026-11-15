@@ -647,29 +647,38 @@ export default function CareHomeClient({
         {activeTab === 'activity' && (
           <div className="space-y-3">
             <h2 className="font-bold text-lg text-gray-900">Care Audit Log</h2>
-            <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-start gap-3 text-sm">
-                <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">💊</span>
-                <div>
-                  <p className="font-bold text-gray-900">{elderNickname} took Metformin 500mg</p>
-                  <p className="text-xs text-gray-400">Confirmed via CapsuleSplit</p>
-                </div>
+            {doses.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center space-y-2">
+                <span className="text-4xl">📋</span>
+                <p className="font-semibold text-gray-700">No activity yet</p>
+                <p className="text-xs text-gray-400">
+                  Medication logs, hugs, and appointment reminders will appear here once your family starts using Aarohi.
+                </p>
               </div>
-              <div className="flex items-start gap-3 text-sm">
-                <span className="p-2 bg-pink-50 text-pink-600 rounded-xl">❤️</span>
-                <div>
-                  <p className="font-bold text-gray-900">Family cheer sent to {elderNickname}</p>
-                  <p className="text-xs text-gray-400">Displayed on Elder Home screen</p>
-                </div>
+            ) : (
+              <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
+                {doses.filter(d => d.status === 'taken' || d.status === 'missed').map((dose) => (
+                  <div key={dose.id} className="flex items-start gap-3 text-sm">
+                    <span className={`p-2 rounded-xl ${dose.status === 'taken' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                      {dose.status === 'taken' ? '✅' : '⚠️'}
+                    </span>
+                    <div>
+                      <p className="font-bold text-gray-900">
+                        {elderNickname} {dose.status === 'taken' ? 'took' : 'missed'} {dose.medName}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {dose.scheduledAt?.toDate
+                          ? dose.scheduledAt.toDate().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+                          : 'Recorded'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {doses.filter(d => d.status === 'taken' || d.status === 'missed').length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-2">No completed doses recorded yet today.</p>
+                )}
               </div>
-              <div className="flex items-start gap-3 text-sm">
-                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">📅</span>
-                <div>
-                  <p className="font-bold text-gray-900">Upcoming visit reminder sent</p>
-                  <p className="text-xs text-gray-400">Delivered via WhatsApp & Email</p>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         )}
 

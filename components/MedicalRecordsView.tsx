@@ -39,6 +39,21 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
   const [newDocSummary, setNewDocSummary] = useState('');
   const [savingDoc, setSavingDoc] = useState(false);
 
+  // Edit profile state
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editAge, setEditAge] = useState('');
+  const [editGender, setEditGender] = useState('');
+  const [editBloodGroup, setEditBloodGroup] = useState('');
+  const [editHeight, setEditHeight] = useState('');
+  const [editWeight, setEditWeight] = useState('');
+  const [editAllergies, setEditAllergies] = useState('');
+  const [editConditions, setEditConditions] = useState('');
+  const [editDoctorName, setEditDoctorName] = useState('');
+  const [editDoctorSpecialty, setEditDoctorSpecialty] = useState('');
+  const [editDoctorClinic, setEditDoctorClinic] = useState('');
+  const [editDoctorPhone, setEditDoctorPhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const t = getTranslations(locale);
 
   const fetchRecords = async () => {
@@ -47,11 +62,63 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        // Pre-populate edit fields with existing real data
+        const p = json.medicalProfile || {};
+        setEditAge(p.age != null ? String(p.age) : '');
+        setEditGender(p.gender || '');
+        setEditBloodGroup(p.bloodGroup || '');
+        setEditHeight(p.height || '');
+        setEditWeight(p.weight || '');
+        setEditAllergies(Array.isArray(p.allergies) ? p.allergies.join(', ') : '');
+        setEditConditions(Array.isArray(p.conditions) ? p.conditions.join(', ') : '');
+        setEditDoctorName(p.primaryDoctor?.name || '');
+        setEditDoctorSpecialty(p.primaryDoctor?.specialty || '');
+        setEditDoctorClinic(p.primaryDoctor?.clinic || '');
+        setEditDoctorPhone(p.primaryDoctor?.phone || '');
       }
     } catch (err) {
       console.warn('Failed to fetch records:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const allergiesArr = editAllergies.split(',').map(s => s.trim()).filter(Boolean);
+      const conditionsArr = editConditions.split(',').map(s => s.trim()).filter(Boolean);
+      const payload: any = {
+        age: editAge ? Number(editAge) : undefined,
+        gender: editGender || undefined,
+        bloodGroup: editBloodGroup || undefined,
+        height: editHeight || undefined,
+        weight: editWeight || undefined,
+        allergies: allergiesArr,
+        conditions: conditionsArr,
+      };
+      if (editDoctorName) {
+        payload.primaryDoctor = {
+          name: editDoctorName,
+          specialty: editDoctorSpecialty,
+          clinic: editDoctorClinic,
+          phone: editDoctorPhone,
+        };
+      }
+      const res = await fetch('/api/records', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setShowEditProfile(false);
+        await fetchRecords();
+      }
+    } catch (err) {
+      console.warn('Error saving profile:', err);
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -151,144 +218,221 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === 'profile' && (
         <div className="space-y-4">
-          {/* Patient Overview Card */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-amber-100 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-2xl">
-                👴
+
+          {/* Edit Profile Form */}
+          {showEditProfile && isCaretaker ? (
+            <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl p-5 shadow-md border border-amber-200 space-y-4">
+              <h4 className="text-sm font-bold text-amber-900">✏️ Update Elder's Health Profile</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Age</label>
+                  <input type="number" min="1" max="120" placeholder="e.g. 72"
+                    value={editAge} onChange={e => setEditAge(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Gender</label>
+                  <select value={editGender} onChange={e => setEditGender(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400">
+                    <option value="">Select…</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Blood Group</label>
+                  <select value={editBloodGroup} onChange={e => setEditBloodGroup(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400">
+                    <option value="">Select…</option>
+                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Height</label>
+                  <input type="text" placeholder="e.g. 165 cm"
+                    value={editHeight} onChange={e => setEditHeight(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Weight</label>
+                  <input type="text" placeholder="e.g. 65 kg"
+                    value={editWeight} onChange={e => setEditWeight(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
+                </div>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{profile.patientName}</h3>
-                <p className="text-xs font-semibold text-gray-500">
-                  {profile.age} yrs • {profile.gender} • {profile.nickname ? `"${profile.nickname}"` : ''}
-                </p>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Known Allergies <span className="font-normal text-gray-400">(comma-separated)</span></label>
+                <input type="text" placeholder="e.g. Penicillin, Sulfa drugs"
+                  value={editAllergies} onChange={e => setEditAllergies(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
               </div>
-            </div>
-            {/* Blood Group Badge */}
-            <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-3.5 py-2 text-center">
-              <p className="text-[10px] font-black uppercase tracking-wider text-red-600">{t.bloodGroup}</p>
-              <p className="text-xl font-black text-red-700">{profile.bloodGroup || 'O+'}</p>
-            </div>
-          </div>
-
-          {/* Vitals Snapshot */}
-          {profile.recentVitals && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-3xl p-4">
-              <div className="flex items-center gap-2 mb-3 text-blue-900 font-bold text-sm">
-                <Activity className="w-4 h-4 text-blue-600" />
-                <span>{t.recentVitals}</span>
-                <span className="text-[11px] font-normal text-blue-600 ml-auto">{profile.recentVitals.lastChecked}</span>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Chronic Conditions <span className="font-normal text-gray-400">(comma-separated)</span></label>
+                <input type="text" placeholder="e.g. Type 2 Diabetes, Hypertension"
+                  value={editConditions} onChange={e => setEditConditions(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="bg-white/80 p-2.5 rounded-2xl border border-blue-100">
-                  <p className="text-[11px] text-gray-500 font-semibold">Blood Pressure</p>
-                  <p className="text-base font-black text-gray-800">{profile.recentVitals.bloodPressure}</p>
+              <p className="text-xs font-bold text-gray-700 pt-1">Primary Doctor</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <input type="text" placeholder="Doctor Name (e.g. Dr. Priya Verma)"
+                    value={editDoctorName} onChange={e => setEditDoctorName(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
                 </div>
-                <div className="bg-white/80 p-2.5 rounded-2xl border border-blue-100">
-                  <p className="text-[11px] text-gray-500 font-semibold">Fasting Sugar</p>
-                  <p className="text-base font-black text-gray-800">{profile.recentVitals.fastingBloodSugar}</p>
+                <div>
+                  <input type="text" placeholder="Specialty"
+                    value={editDoctorSpecialty} onChange={e => setEditDoctorSpecialty(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
                 </div>
-                <div className="bg-white/80 p-2.5 rounded-2xl border border-blue-100">
-                  <p className="text-[11px] text-gray-500 font-semibold">Heart Rate</p>
-                  <p className="text-base font-black text-gray-800">{profile.recentVitals.heartRate}</p>
+                <div>
+                  <input type="tel" placeholder="Phone"
+                    value={editDoctorPhone} onChange={e => setEditDoctorPhone(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
                 </div>
-                <div className="bg-white/80 p-2.5 rounded-2xl border border-blue-100">
-                  <p className="text-[11px] text-gray-500 font-semibold">Oxygen (SpO2)</p>
-                  <p className="text-base font-black text-emerald-700">{profile.recentVitals.spO2}</p>
+                <div className="col-span-2">
+                  <input type="text" placeholder="Clinic / Hospital Name"
+                    value={editDoctorClinic} onChange={e => setEditDoctorClinic(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Allergies Card */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-red-100">
-            <div className="flex items-center gap-2 mb-2 text-red-800 font-bold text-sm">
-              <ShieldAlert className="w-4 h-4 text-red-600" />
-              <span>{t.allergies}</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {profile.allergies && profile.allergies.length > 0 ? (
-                profile.allergies.map((allergy: string, idx: number) => (
-                  <span
-                    key={idx}
-                    className="bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                    {allergy}
-                  </span>
-                ))
-              ) : (
-                <p className="text-xs text-gray-500">No known drug allergies reported.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Chronic Conditions Card */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-amber-100">
-            <div className="flex items-center gap-2 mb-2 text-amber-900 font-bold text-sm">
-              <Heart className="w-4 h-4 text-amber-600" />
-              <span>{t.conditions}</span>
-            </div>
-            <div className="space-y-1.5">
-              {profile.conditions && profile.conditions.length > 0 ? (
-                profile.conditions.map((cond: string, idx: number) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 bg-amber-50/70 text-gray-800 px-3 py-2 rounded-xl text-xs font-semibold"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span>{cond}</span>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowEditProfile(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100 border border-gray-200">
+                  Cancel
+                </button>
+                <button type="submit" disabled={savingProfile}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 shadow-sm">
+                  {savingProfile ? 'Saving…' : 'Save Profile'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {/* Patient Overview Card */}
+              <div className="bg-white rounded-3xl p-5 shadow-sm border border-amber-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-2xl">
+                      👴
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{profile.patientName || '—'}</h3>
+                      <p className="text-xs font-semibold text-gray-500">
+                        {profile.age ? `${profile.age} yrs` : 'Age not set'}
+                        {profile.gender ? ` • ${profile.gender}` : ''}
+                        {profile.nickname ? ` • "${profile.nickname}"` : ''}
+                      </p>
+                      {profile.height || profile.weight ? (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {profile.height && `Height: ${profile.height}`}
+                          {profile.height && profile.weight ? ' • ' : ''}
+                          {profile.weight && `Weight: ${profile.weight}`}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-xs text-gray-500">No chronic conditions listed.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Primary Doctor & Emergency Contacts Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Primary Doctor */}
-            {profile.primaryDoctor && (
-              <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 space-y-2">
-                <div className="flex items-center gap-2 text-teal-800 font-bold text-xs uppercase tracking-wider">
-                  <Stethoscope className="w-4 h-4 text-teal-600" />
-                  <span>{t.doctor}</span>
+                  {/* Blood Group Badge */}
+                  <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-3.5 py-2 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-red-600">{t.bloodGroup}</p>
+                    <p className="text-xl font-black text-red-700">{profile.bloodGroup || '—'}</p>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">{profile.primaryDoctor.name}</h4>
-                <p className="text-xs text-gray-500">{profile.primaryDoctor.specialty}</p>
-                <p className="text-xs text-gray-400">{profile.primaryDoctor.clinic}</p>
-                {profile.primaryDoctor.phone && (
-                  <a
-                    href={`tel:${profile.primaryDoctor.phone}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl transition"
-                  >
-                    <Phone className="w-3.5 h-3.5" /> Call Doctor
-                  </a>
+                {isCaretaker && (
+                  <button onClick={() => setShowEditProfile(true)}
+                    className="mt-3 w-full text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 py-2 rounded-xl flex items-center justify-center gap-1.5 transition">
+                    ✏️ Edit Health Profile
+                  </button>
                 )}
               </div>
-            )}
 
-            {/* Emergency Contact */}
-            {profile.emergencyContact && (
-              <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 space-y-2">
-                <div className="flex items-center gap-2 text-rose-800 font-bold text-xs uppercase tracking-wider">
-                  <ShieldAlert className="w-4 h-4 text-rose-600" />
-                  <span>{t.emergencyContact}</span>
+              {/* Allergies Card */}
+              <div className="bg-white rounded-3xl p-5 shadow-sm border border-red-100">
+                <div className="flex items-center gap-2 mb-2 text-red-800 font-bold text-sm">
+                  <ShieldAlert className="w-4 h-4 text-red-600" />
+                  <span>{t.allergies}</span>
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">{profile.emergencyContact.name}</h4>
-                <p className="text-xs text-gray-500">{profile.emergencyContact.relationship}</p>
-                {profile.emergencyContact.phone && (
-                  <a
-                    href={`tel:${profile.emergencyContact.phone}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition"
-                  >
-                    <Phone className="w-3.5 h-3.5" /> Call Caretaker
-                  </a>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {profile.allergies && profile.allergies.length > 0 ? (
+                    profile.allergies.map((allergy: string, idx: number) => (
+                      <span key={idx}
+                        className="bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                        {allergy}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">No allergies recorded yet. Tap "Edit Health Profile" to add.</p>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Chronic Conditions Card */}
+              <div className="bg-white rounded-3xl p-5 shadow-sm border border-amber-100">
+                <div className="flex items-center gap-2 mb-2 text-amber-900 font-bold text-sm">
+                  <Heart className="w-4 h-4 text-amber-600" />
+                  <span>{t.conditions}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {profile.conditions && profile.conditions.length > 0 ? (
+                    profile.conditions.map((cond: string, idx: number) => (
+                      <div key={idx}
+                        className="flex items-center gap-2 bg-amber-50/70 text-gray-800 px-3 py-2 rounded-xl text-xs font-semibold">
+                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span>{cond}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">No conditions recorded yet. Tap "Edit Health Profile" to add.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Primary Doctor & Emergency Contacts Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Primary Doctor */}
+                {profile.primaryDoctor ? (
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 space-y-2">
+                    <div className="flex items-center gap-2 text-teal-800 font-bold text-xs uppercase tracking-wider">
+                      <Stethoscope className="w-4 h-4 text-teal-600" />
+                      <span>{t.doctor}</span>
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900">{profile.primaryDoctor.name}</h4>
+                    <p className="text-xs text-gray-500">{profile.primaryDoctor.specialty}</p>
+                    <p className="text-xs text-gray-400">{profile.primaryDoctor.clinic}</p>
+                    {profile.primaryDoctor.phone && (
+                      <a href={`tel:${profile.primaryDoctor.phone}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl transition">
+                        <Phone className="w-3.5 h-3.5" /> Call Doctor
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-3xl p-4 border border-dashed border-gray-200 flex items-center justify-center">
+                    <p className="text-xs text-gray-400 italic text-center">No doctor added yet</p>
+                  </div>
+                )}
+
+                {/* Emergency Contact */}
+                {profile.emergencyContact && profile.emergencyContact.phone ? (
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 space-y-2">
+                    <div className="flex items-center gap-2 text-rose-800 font-bold text-xs uppercase tracking-wider">
+                      <ShieldAlert className="w-4 h-4 text-rose-600" />
+                      <span>{t.emergencyContact}</span>
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900">{profile.emergencyContact.name || 'Primary Caretaker'}</h4>
+                    <p className="text-xs text-gray-500">{profile.emergencyContact.relationship}</p>
+                    <a href={`tel:${profile.emergencyContact.phone}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition">
+                      <Phone className="w-3.5 h-3.5" /> Call Caretaker
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -303,23 +447,27 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
               <Pill className="w-4 h-4 text-amber-600" />
               Completed & Past Prescription Courses
             </h4>
-            <div className="space-y-2">
-              {pastCourses.map((course: any) => (
-                <div
-                  key={course.id}
-                  className="p-3 bg-gray-50 hover:bg-amber-50/50 rounded-2xl border border-gray-100 transition space-y-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-gray-800">{course.medName}</span>
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      {course.status}
-                    </span>
+            {pastCourses.length > 0 ? (
+              <div className="space-y-2">
+                {pastCourses.map((course: any) => (
+                  <div
+                    key={course.id}
+                    className="p-3 bg-gray-50 hover:bg-amber-50/50 rounded-2xl border border-gray-100 transition space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-gray-800">{course.medName}</span>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        {course.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600">{course.duration} • {course.reason}</p>
+                    <p className="text-[11px] text-gray-400">Prescribed by {course.prescribedBy}</p>
                   </div>
-                  <p className="text-xs text-gray-600">{course.duration} • {course.reason}</p>
-                  <p className="text-[11px] text-gray-400">Prescribed by {course.prescribedBy}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 py-3 text-center">No past medication courses recorded.</p>
+            )}
           </div>
 
           {/* Historical Taken Doses Log */}
@@ -450,7 +598,16 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
 
           {/* Document Cards */}
           <div className="space-y-3">
-            {documents.map((doc: any) => (
+            {documents.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center space-y-2">
+                <span className="text-4xl">📁</span>
+                <p className="font-semibold text-gray-700">No medical records uploaded yet</p>
+                <p className="text-xs text-gray-400">
+                  Tap "+ Add Document" above to save prescriptions, lab reports, or doctor summaries.
+                </p>
+              </div>
+            ) : (
+              documents.map((doc: any) => (
               <div
                 key={doc.id}
                 className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-amber-200 transition space-y-2.5"
@@ -489,7 +646,7 @@ export default function MedicalRecordsView({ locale, isCaretaker = false }: Medi
                   </div>
                 )}
               </div>
-            ))}
+            )))}
           </div>
         </div>
       )}
