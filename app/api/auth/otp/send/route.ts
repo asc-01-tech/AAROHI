@@ -14,7 +14,9 @@ const Schema = z.object({
   type: z.enum(['email', 'phone']).optional().default('email'),
 });
 
-export const POST = withTiming('auth/otp/send', async (req: NextRequest) => {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
@@ -72,4 +74,4 @@ export const POST = withTiming('auth/otp/send', async (req: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}

@@ -4,9 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, createCustomToken } from '@/lib/firebaseAdmin';
 import { signSession, setSessionCookie } from '@/lib/session';
-import { withTiming } from '@/lib/withTiming';
 
 const Schema = z.object({
   identifier: z.string().min(3),
@@ -14,7 +13,9 @@ const Schema = z.object({
   type: z.enum(['email', 'phone']).optional().default('email'),
 });
 
-export const POST = withTiming('auth/otp/verify', async (req: NextRequest) => {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
@@ -33,7 +34,6 @@ export const POST = withTiming('auth/otp/verify', async (req: NextRequest) => {
 
   try {
     const db = getAdminDb();
-    const adminAuth = getAdminAuth();
     const otpRef = db.collection('otps').doc(docId);
     const otpSnap = await otpRef.get();
 
@@ -88,7 +88,7 @@ export const POST = withTiming('auth/otp/verify', async (req: NextRequest) => {
       memberId = membersSnap.empty ? 'caretaker-root' : membersSnap.docs[0].id;
 
       // Mint Firebase custom token & session
-      const firebaseToken = await adminAuth.createCustomToken(memberId, {
+      const firebaseToken = createCustomToken(memberId, {
         familyId,
         memberId,
         role: memberRole,
@@ -127,4 +127,4 @@ export const POST = withTiming('auth/otp/verify', async (req: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}

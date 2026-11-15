@@ -1,17 +1,18 @@
 // app/api/auth/google/route.ts
-// Handles Google Sign-In: verifies Firebase ID token and authenticates user.
+// Handles Google Sign-In: verifies Google ID token and logs user into family workspace.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, createCustomToken } from '@/lib/firebaseAdmin';
 import { signSession, setSessionCookie } from '@/lib/session';
-import { withTiming } from '@/lib/withTiming';
 
 const Schema = z.object({
   idToken: z.string().min(10),
 });
 
-export const POST = withTiming('auth/google', async (req: NextRequest) => {
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
@@ -27,8 +28,14 @@ export const POST = withTiming('auth/google', async (req: NextRequest) => {
   const { idToken } = parsed.data;
 
   try {
-    const adminAuth = getAdminAuth();
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    // Verify token using Google OAuth2 tokeninfo endpoint
+    const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    const decodedToken = await tokenRes.json();
+
+    if (!tokenRes.ok || decodedToken.error_description) {
+      return NextResponse.json({ error: 'Invalid or expired Google token' }, { status: 401 });
+    }
+
     const email = decodedToken.email?.toLowerCase();
     const name = decodedToken.name || 'Google User';
 
@@ -46,9 +53,9 @@ export const POST = withTiming('auth/google', async (req: NextRequest) => {
 
       // Find member doc
       const membersSnap = await familyDoc.ref.collection('members').where('role', '==', 'caretaker').limit(1).get();
-      const memberId = membersSnap.empty ? decodedToken.uid : membersSnap.docs[0].id;
+      const memberId = membersSnap.empty ? (decodedToken.sub || 'caretaker-google') : membersSnap.docs[0].id;
 
-      const firebaseToken = await adminAuth.createCustomToken(memberId, {
+      const firebaseToken = createCustomToken(memberId, {
         familyId,
         memberId,
         role: 'caretaker',
@@ -85,4 +92,4 @@ export const POST = withTiming('auth/google', async (req: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}
