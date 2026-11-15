@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ───────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function familyClaim(familyId) {
+      return isSignedIn() && request.auth.token.familyId == familyId;
+    }
+
+    function role(familyId) {
+      return familyClaim(familyId) ? request.auth.token.role : null;
+    }
+
+    function isElder(familyId)     { return role(familyId) == 'elder'; }
+    function isCaretaker(familyId) { return role(familyId) == 'caretaker'; }
+    function isFamily(familyId)    { return role(familyId) == 'family'; }
+    function isMember(familyId)    { return familyClaim(familyId); }
+    function canManage(familyId)   { return isCaretaker(familyId); }
+
+    // ─── Global cache (server-only; no client reads) ─────────────────────
+    match /globalCache/{hash} {
+      allow read, write: if false; // Admin SDK only
+    }
+
+    // ─── Family root ──────────────────────────────────────────────────────
+    match /families/{familyId} {
+      allow read: if isMember(familyId);
+      allow create: if false; // Setup API only (admin SDK)
+      allow update: if canManage(familyId);
+      allow delete: if false;
+
+      // Members
+      match /members/{memberId} {
+        allow read: if isMember(familyId);
+        allow write: if canManage(familyId);
+      }
+
+      // Medications
+      match /medications/{medId} {
+        allow read: if isMember(familyId);
+        allow create, update: if canManage(familyId);
+        // Elder cannot delete; caretaker can
+        allow delete: if canManage(familyId);
+      }
+
+      // Dose events
+      match /doseEvents/{doseId} {
+        allow read: if isMember(familyId);
+        // Taking a dose: elder allowed; status updates only
+        allow update: if isMember(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status','takenAt','takenBy']);
+        allow create: if canManage(familyId); // cron creates via admin
+        allow delete: if canManage(familyId);
+      }
+
+      // Appointments
+      match /appointments/{apptId} {
+        allow read: if isMember(familyId);
+        allow write: if isMember(familyId); // family can add
+        allow delete: if canManage(familyId);
+      }
+
+      // Change requests
+      match /changeRequests/{reqId} {
+        allow read: if isMember(familyId);
+        allow create: if isMember(familyId);
+        // Elder approves/rejects
+        allow update: if isMember(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status','decidedAt']);
+        allow delete: if false;
+      }
+
+      // Activity log (append-only via admin; read-only for members)
+      match /activityLog/{logId} {
+        allow read: if isMember(familyId);
+        allow write: if false; // Admin SDK only
+      }
+
+      // Hugs
+      match /hugs/{hugId} {
+        allow read: if isMember(familyId);
+        allow create: if isMember(familyId) && !isElder(familyId);
+        // Elder marks seen
+        allow update: if isElder(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
+        allow delete: if false;
+      }
+
+      // Check-ins
+      match /checkins/{id} {
+        allow read: if isMember(familyId);
+        allow create, update: if isElder(familyId);
+        allow delete: if canManage(familyId);
+      }
+
+      // Notification log (admin writes, members read)
+      match /notificationLog/{id} {
+        allow read: if canManage(familyId);
+        allow write: if false;
+      }
+
+      // Reports
+      match /reports/{id} {
+        allow read: if isMember(familyId);
+        allow write: if false; // Admin SDK only
+      }
+    }
+  }
+}

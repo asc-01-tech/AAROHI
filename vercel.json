@@ -1,0 +1,18 @@
+{
+  "regions": ["bom1"],
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 30
+    },
+    "app/api/scan/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/report/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/cron/tick/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "crons": []
+}
