@@ -1,36 +1,68 @@
 // lib/session.ts
-// JWT session cookie helpers using jose (edge-compatible, no Node crypto).
+// Native Node.js crypto JWT session implementation (zero external dependency, avoids ESM conflicts with jwks-rsa).
 // Cookie: httpOnly, sameSite strict, secure in production, 7-day expiry.
 
-import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 const COOKIE_NAME = 'cc_session';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days — persistent elder session
 
-export interface SessionPayload extends JWTPayload {
+export interface SessionPayload {
   familyId: string;
   memberId: string;
   role: 'elder' | 'caretaker' | 'family';
+  exp?: number;
+  iat?: number;
+  [key: string]: unknown;
 }
 
-function secret(): Uint8Array {
-  const s = process.env.SESSION_SECRET || 'carecircle-hackathon-super-secret-jwt-key-2026-secure!';
-  return new TextEncoder().encode(s);
+function base64url(input: string | Buffer): string {
+  const buf = typeof input === 'string' ? Buffer.from(input) : input;
+  return buf.toString('base64url');
+}
+
+function secret(): string {
+  return process.env.SESSION_SECRET || 'carecircle-hackathon-super-secret-jwt-key-2026-secure!';
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(secret());
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const now = Math.floor(Date.now() / 1000);
+  const fullPayload = {
+    ...payload,
+    iat: now,
+    exp: now + 7 * 24 * 60 * 60, // 7 days
+  };
+  const body = base64url(JSON.stringify(fullPayload));
+  const signature = createHmac('sha256', secret())
+    .update(`${header}.${body}`)
+    .digest('base64url');
+  return `${header}.${body}.${signature}`;
 }
 
 export async function verifySession(token: string): Promise<SessionPayload> {
-  const { payload } = await jwtVerify(token, secret());
-  return payload as SessionPayload;
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid JWT format');
+  const [header, body, signature] = parts;
+
+  const expectedSignature = createHmac('sha256', secret())
+    .update(`${header}.${body}`)
+    .digest('base64url');
+
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSignature);
+
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    throw new Error('Invalid signature');
+  }
+
+  const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error('Token expired');
+  }
+  return payload;
 }
 
 /** Read & verify session from the request cookies. Returns null if invalid. */
@@ -71,4 +103,3 @@ export function setSessionCookie(res: NextResponse, token: string): void {
 export function clearSessionCookie(res: NextResponse): void {
   res.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' });
 }
-
