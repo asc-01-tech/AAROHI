@@ -71,9 +71,10 @@ export default function CareHomeClient({
   const { doses, meds, appointments, changeRequests, loading } = useCareData();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
-  // Username & Handle state
-  const [currentUsername, setCurrentUsername] = useState(initialUsername);
-  const displayHandle = currentUsername ? `@${currentUsername}` : familyId;
+  // Username & Handle state (defaults to clean slug, never an API key)
+  const defaultSlug = (elderNickname || elderName || 'care').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') + '_family';
+  const [currentUsername, setCurrentUsername] = useState(initialUsername || defaultSlug);
+  const displayHandle = currentUsername ? `@${currentUsername.replace(/^@/, '')}` : `@${defaultSlug}`;
 
   // Change Username Modal State
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
@@ -392,10 +393,20 @@ export default function CareHomeClient({
 
         {/* Visible Family Handle in Top Bar */}
         <div className="mt-2.5 flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-xl px-3 py-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            onClick={() => {
+              setNewUsernameInput(currentUsername.replace(/^@/, ''));
+              setUsernameError('');
+              setUsernameSuccess('');
+              setUsernameModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 min-w-0 hover:opacity-80 transition text-left"
+            title="Click to change handle"
+          >
             <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider shrink-0">Family:</span>
             <span className="text-xs font-bold text-amber-950 truncate select-all">{displayHandle}</span>
-          </div>
+            <span className="text-[10px] text-amber-600 underline font-medium ml-1">Change</span>
+          </button>
           <button
             onClick={handleCopyFamilyId}
             className="ml-2 shrink-0 flex items-center gap-1 text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded-lg transition active:scale-95"
@@ -414,13 +425,13 @@ export default function CareHomeClient({
         {activeTab === 'overview' && (
           <div className="space-y-4">
             {/* Family Circle Handle Banner */}
-            <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 rounded-3xl p-4 text-white shadow-md shadow-amber-500/15">
+            <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 rounded-3xl p-5 text-white shadow-md shadow-amber-500/15">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider font-bold text-amber-100 flex items-center gap-1.5">
                     <span>✨</span> Family Circle Handle
                   </p>
-                  <p className="text-xl font-black tracking-tight text-white mt-0.5 select-all">{displayHandle}</p>
+                  <p className="text-2xl font-black tracking-tight text-white mt-0.5 select-all">{displayHandle}</p>
                 </div>
                 <button
                   onClick={handleCopyFamilyId}
@@ -431,8 +442,57 @@ export default function CareHomeClient({
                 </button>
               </div>
               <p className="text-xs text-amber-100 mt-2 leading-relaxed">
-                Share your handle <strong>{displayHandle}</strong> and your 6-digit passcode with your family & elder to log in on their phones.
+                Share <strong>{displayHandle}</strong> and your 6-digit passcode with your family & elder to log in.
               </p>
+
+              {/* Direct Edit Buttons Right on the Overview Banner */}
+              <div className="flex gap-2 pt-3 mt-3 border-t border-white/20">
+                <button
+                  onClick={() => {
+                    setNewUsernameInput(currentUsername.replace(/^@/, ''));
+                    setUsernameError('');
+                    setUsernameSuccess('');
+                    setUsernameModalOpen(true);
+                  }}
+                  className="flex-1 bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-white/25"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>✏️ Change Handle</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentPasscodeInput('');
+                    setNewPasscodeInput('');
+                    setConfirmPasscodeInput('');
+                    setPasscodeError('');
+                    setPasscodeSuccess('');
+                    setPasscodeModalOpen(true);
+                  }}
+                  className="flex-1 bg-white/20 hover:bg-white/30 active:scale-95 text-white text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-white/25"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>🔑 Change Passcode</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Access to Elder Health Profile on Overview */}
+            <div className="bg-white rounded-3xl p-4 border border-amber-100 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-xl">
+                  👴
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">{elderName}</h3>
+                  <p className="text-xs text-gray-500">Elderly Medical Profile</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('records')}
+                className="text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-2 rounded-xl transition flex items-center gap-1 active:scale-95"
+              >
+                <span>✏️ Edit Medical Data</span>
+              </button>
             </div>
 
             {/* Adherence & Streak Card */}

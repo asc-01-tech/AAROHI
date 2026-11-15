@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
 import { getClientAuth } from '@/lib/firebaseClient';
 
-type Step = 'elder' | 'caretaker' | 'passcode' | 'done';
+type Step = 'elder' | 'health' | 'caretaker' | 'passcode' | 'done';
 
 const LANGUAGES = [
   { value: 'en-IN', label: 'English' },
@@ -29,6 +29,18 @@ export default function SetupClient() {
   const [language, setLanguage] = useState('en-IN');
   const [elderPhone, setElderPhone] = useState('');
   const [elderEmail, setElderEmail] = useState('');
+
+  // Elder Health details (manually entered by caretaker)
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [conditions, setConditions] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [doctorPhone, setDoctorPhone] = useState('');
+
   const [caretakerName, setCaretakerName] = useState('');
   const [caretakerPhone, setCaretakerPhone] = useState('');
   const [caretakerEmail, setCaretakerEmail] = useState('');
@@ -70,6 +82,15 @@ export default function SetupClient() {
           nicknameSpoken: (nicknameSpoken || nickname).trim(),
           username: username.trim() || undefined,
           language,
+          age: age ? Number(age) : undefined,
+          gender: gender || undefined,
+          bloodGroup: bloodGroup || undefined,
+          height: height.trim() || undefined,
+          weight: weight.trim() || undefined,
+          allergies: allergies.split(',').map(s => s.trim()).filter(Boolean),
+          conditions: conditions.split(',').map(s => s.trim()).filter(Boolean),
+          doctorName: doctorName.trim() || undefined,
+          doctorPhone: doctorPhone.trim() || undefined,
           elderPhone: elderPhone.trim() || undefined,
           elderEmail: elderEmail.trim() || undefined,
           caretakerName: caretakerName.trim(),
@@ -171,12 +192,129 @@ export default function SetupClient() {
               <input className={inputClass} value={elderEmail} onChange={e => setElderEmail(e.target.value)} placeholder="elder@email.com" type="email" />
             </div>
             <button
-              onClick={() => { if (elderName && nickname) setStep('caretaker'); }}
+              onClick={() => { if (elderName && nickname) setStep('health'); }}
               disabled={!elderName || !nickname}
-              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xl rounded-2xl py-4"
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xl rounded-2xl py-4 shadow-md shadow-amber-200"
             >
-              Next →
+              Next: Health Details →
             </button>
+          </>
+        )}
+
+        {/* Step: Health Details (Manually entered by Caretaker) */}
+        {step === 'health' && (
+          <>
+            <div>
+              <span className="text-3xl">🩺</span>
+              <h2 className="text-xl font-bold text-gray-800 mt-1">Health Details for {nickname || elderName}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Enter their actual medical profile (no dummy data)</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Age</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  className={inputClass}
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  placeholder="e.g. 72"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Gender</label>
+                <select className={inputClass} value={gender} onChange={e => setGender(e.target.value)}>
+                  <option value="">Select…</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Blood Group</label>
+                <select className={inputClass} value={bloodGroup} onChange={e => setBloodGroup(e.target.value)}>
+                  <option value="">Select…</option>
+                  {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Height</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={height}
+                  onChange={e => setHeight(e.target.value)}
+                  placeholder="e.g. 165 cm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Weight</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={weight}
+                onChange={e => setWeight(e.target.value)}
+                placeholder="e.g. 68 kg"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Known Allergies <span className="text-xs text-gray-400 font-normal">(comma-separated)</span></label>
+              <input
+                type="text"
+                className={inputClass}
+                value={allergies}
+                onChange={e => setAllergies(e.target.value)}
+                placeholder="e.g. Penicillin, Peanuts (leave blank if none)"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Chronic Conditions <span className="text-xs text-gray-400 font-normal">(comma-separated)</span></label>
+              <input
+                type="text"
+                className={inputClass}
+                value={conditions}
+                onChange={e => setConditions(e.target.value)}
+                placeholder="e.g. Diabetes, Blood Pressure (leave blank if none)"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Primary Doctor Name (optional)</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={doctorName}
+                onChange={e => setDoctorName(e.target.value)}
+                placeholder="e.g. Dr. Verma"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Doctor Phone (optional)</label>
+              <input
+                type="tel"
+                className={inputClass}
+                value={doctorPhone}
+                onChange={e => setDoctorPhone(e.target.value)}
+                placeholder="+91 9876543210"
+              />
+            </div>
+
+            <button
+              onClick={() => setStep('caretaker')}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xl rounded-2xl py-4 shadow-md shadow-amber-200"
+            >
+              Next: Caretaker Info →
+            </button>
+            <button onClick={() => setStep('health')} className="w-full text-gray-500 py-2">← Back</button>
           </>
         )}
 
@@ -207,7 +345,7 @@ export default function SetupClient() {
             >
               Next →
             </button>
-            <button onClick={() => setStep('elder')} className="w-full text-gray-500 py-2">← Back</button>
+            <button onClick={() => setStep('health')} className="w-full text-gray-500 py-2">← Back</button>
           </>
         )}
 

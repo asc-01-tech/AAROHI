@@ -60,13 +60,23 @@ export default async function ElderPage() {
   // ── Plant level (0-5) ──────────────────────────────────────────────────
   const plantLevel: number = Math.min(5, Math.max(0, data.plantLevel ?? 0));
 
+  let elderUsername = (data.username as string | undefined) ?? '';
+  if (!elderUsername) {
+    const base = (elder.nickname || elder.name || 'care')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    elderUsername = `${base || 'family'}_circle`;
+    db.collection('families').doc(familyId).update({ username: elderUsername }).catch(() => {});
+  }
+
   return (
     <ElderHomeClient
       elder={elder}
       streak={streak}
       plantLevel={plantLevel}
       familyId={familyId}
-      username={(data.username as string | undefined) ?? ''}
+      username={elderUsername}
       memberId={memberId}
     />
   );

@@ -120,7 +120,7 @@ export const PUT = withTiming('PUT /api/records/profile', async (req: NextReques
 
   const { familyId } = session;
   const body = await req.json();
-  const { bloodGroup, allergies, conditions, primaryDoctor, age, weight, height } = body;
+  const { bloodGroup, allergies, conditions, primaryDoctor, age, weight, height, gender, patientName, nickname } = body;
 
   const db = getAdminDb();
   const familyRef = db.collection('families').doc(familyId);
@@ -133,6 +133,9 @@ export const PUT = withTiming('PUT /api/records/profile', async (req: NextReques
   if (age !== undefined) updates['elder.age'] = age;
   if (weight !== undefined) updates['elder.weight'] = weight;
   if (height !== undefined) updates['elder.height'] = height;
+  if (gender !== undefined) updates['elder.gender'] = gender;
+  if (patientName !== undefined) updates['elder.name'] = patientName;
+  if (nickname !== undefined) updates['elder.nickname'] = nickname;
 
   await familyRef.update(updates);
 

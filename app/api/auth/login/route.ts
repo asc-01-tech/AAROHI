@@ -94,20 +94,25 @@ export async function POST(req: NextRequest) {
     // Reset attempts on success
     await familyRef.update({ loginAttempts: 0, lockUntil: null });
 
-    // Find or pick a member matching the role
+    // Find or pick a member matching the role (or auto-create for family/members)
     const membersSnap = await familyRef.collection('members')
       .where('role', '==', role)
       .limit(1)
       .get();
 
+    let memberId: string;
     if (membersSnap.empty) {
-      return NextResponse.json(
-        { error: `No ${role} account found for this family.` },
-        { status: 403 },
-      );
+      const newMemberRef = familyRef.collection('members').doc();
+      await newMemberRef.set({
+        name: role === 'family' ? 'Family Member' : (role === 'elder' ? (family.elder?.name || 'Elder') : 'Primary Caretaker'),
+        role,
+        language: family.elder?.language || 'en-IN',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      memberId = newMemberRef.id;
+    } else {
+      memberId = membersSnap.docs[0].id;
     }
-    const memberDoc = membersSnap.docs[0];
-    const memberId  = memberDoc.id;
 
     // Mint Firebase custom token
     const firebaseToken = createCustomToken(memberId, {

@@ -26,7 +26,15 @@ export default async function CarePage() {
   const streak = (family.streak as { current: number; best: number } | undefined) ?? { current: 0, best: 0 };
   const plantLevel = (family.plantLevel as number | undefined) ?? 0;
   const caretakerPhone = (family.caretakerPhone as string | undefined) ?? '';
-  const username = (family.username as string | undefined) ?? '';
+  let username = (family.username as string | undefined) ?? '';
+  if (!username) {
+    const base = (elder?.nickname || elder?.name || 'care')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    username = `${base || 'family'}_circle`;
+    db.collection('families').doc(session.familyId).update({ username }).catch(() => {});
+  }
 
   return (
     <CareHomeClient
