@@ -22,6 +22,8 @@ import {
   Phone,
   Globe,
   ClipboardList,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useCareData, DoseEvent, Medication, Appointment } from '@/components/CareDataProvider';
 import AdherenceRing from '@/components/AdherenceRing';
@@ -102,6 +104,19 @@ export default function CareHomeClient({
     setUserLocale(newLocale);
     try {
       localStorage.setItem('carecircle_user_locale', newLocale);
+    } catch { }
+  };
+
+  // Family ID copy state
+  const [copiedFamilyId, setCopiedFamilyId] = useState(false);
+
+  const handleCopyFamilyId = () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(familyId);
+        setCopiedFamilyId(true);
+        setTimeout(() => setCopiedFamilyId(false), 2500);
+      }
     } catch { }
   };
 
@@ -254,23 +269,42 @@ export default function CareHomeClient({
   return (
     <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col pb-24">
       {/* Top Header */}
-      <header className="bg-white px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 z-20">
-        <div>
-          <h1 className="text-xl font-black text-amber-600 flex items-center gap-1.5">
-            <span>Aarohi</span>
-            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold capitalize">
-              {role}
-            </span>
-          </h1>
-          <p className="text-xs text-gray-500 font-medium">Caring for {elderNickname}</p>
+      <header className="bg-white px-5 py-3.5 border-b border-gray-100 sticky top-0 z-20">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-black text-amber-600 flex items-center gap-1.5">
+              <span>Aarohi</span>
+              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold capitalize">
+                {role}
+              </span>
+            </h1>
+            <p className="text-xs text-gray-500 font-medium">Caring for {elderNickname}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
-          title="Logout"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
+
+        {/* Visible Family ID in Top Bar */}
+        <div className="mt-2.5 flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider shrink-0">Family ID:</span>
+            <span className="text-xs font-mono font-black text-amber-950 truncate select-all">{familyId}</span>
+          </div>
+          <button
+            onClick={handleCopyFamilyId}
+            className="ml-2 shrink-0 flex items-center gap-1 text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded-lg transition active:scale-95"
+            title="Copy Family ID"
+            aria-label="Copy Family ID"
+          >
+            {copiedFamilyId ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-amber-800" />}
+            <span>{copiedFamilyId ? 'Copied!' : 'Copy'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Area */}
@@ -278,6 +312,28 @@ export default function CareHomeClient({
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
+            {/* Family Circle ID Banner */}
+            <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 rounded-3xl p-4 text-white shadow-md shadow-amber-500/15">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-amber-100 flex items-center gap-1.5">
+                    <span>🔑</span> Family Circle ID
+                  </p>
+                  <p className="text-xl font-mono font-black tracking-wider text-white mt-0.5 select-all">{familyId}</p>
+                </div>
+                <button
+                  onClick={handleCopyFamilyId}
+                  className="bg-white/20 hover:bg-white/30 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl backdrop-blur-sm transition flex items-center gap-1.5 border border-white/25 shadow-xs"
+                >
+                  {copiedFamilyId ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedFamilyId ? 'Copied!' : 'Copy ID'}</span>
+                </button>
+              </div>
+              <p className="text-xs text-amber-100 mt-2 leading-relaxed">
+                Share this <strong>Family ID</strong> and your 6-digit passcode with your family & elder to log in on their phones.
+              </p>
+            </div>
+
             {/* Adherence & Streak Card */}
             <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
               <AdherenceRing taken={takenDoses} total={totalDoses} size={110} />
@@ -339,10 +395,10 @@ export default function CareHomeClient({
                       <div
                         key={dose.id}
                         className={`p-3.5 rounded-2xl border flex items-center justify-between ${isTaken
-                            ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
-                            : isMissed
-                              ? 'bg-red-50/50 border-red-200 text-red-950'
-                              : 'bg-gray-50 border-gray-100 text-gray-900'
+                          ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
+                          : isMissed
+                            ? 'bg-red-50/50 border-red-200 text-red-950'
+                            : 'bg-gray-50 border-gray-100 text-gray-900'
                           }`}
                       >
                         <div className="flex items-center gap-3">
@@ -621,6 +677,34 @@ export default function CareHomeClient({
         {activeTab === 'settings' && (
           <div className="space-y-4">
             <h2 className="font-bold text-lg text-gray-900">Family & App Settings</h2>
+
+            {/* Family Circle ID Card */}
+            <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
+              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-amber-500" /> Family Circle Details
+              </h3>
+              <div className="text-sm space-y-2 text-gray-600">
+                <div>
+                  <span className="text-xs text-gray-400 block font-medium">Family ID (used by all members to log in):</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-sm font-mono font-bold text-amber-900 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl select-all">
+                      {familyId}
+                    </code>
+                    <button
+                      onClick={handleCopyFamilyId}
+                      className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+                      title="Copy Family ID"
+                    >
+                      {copiedFamilyId ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedFamilyId ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 pt-1">
+                  Share this ID with your family so they can select their role and join your care circle.
+                </p>
+              </div>
+            </div>
 
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
               <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">

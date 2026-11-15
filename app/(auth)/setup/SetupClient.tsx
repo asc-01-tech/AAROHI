@@ -34,6 +34,7 @@ export default function SetupClient() {
   const [passcode, setPasscode] = useState('');
   const [familyId, setFamilyId] = useState('');
   const [shownPasscode, setShownPasscode] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // Auto-fill nicknameSpoken when nickname changes (default: same text)
   function handleNickname(val: string) {
@@ -216,10 +217,24 @@ export default function SetupClient() {
             <h2 className="text-2xl font-bold text-green-700">Workspace Created!</h2>
             <p className="text-gray-600">Share these details with your family:</p>
             <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-2">
-              <p className="text-sm text-gray-500 font-semibold">FAMILY ID</p>
-              <p className="text-lg font-mono font-bold text-gray-800 break-all">{familyId}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500 font-semibold">FAMILY ID</p>
+                <button
+                  onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(familyId);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }}
+                  className="text-xs font-bold text-amber-800 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition active:scale-95"
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy ID'}
+                </button>
+              </div>
+              <p className="text-lg font-mono font-bold text-gray-800 break-all select-all">{familyId}</p>
               <p className="text-sm text-gray-500 font-semibold mt-3">PASSCODE</p>
-              <p className="text-4xl font-mono font-bold tracking-widest text-amber-700">{shownPasscode}</p>
+              <p className="text-4xl font-mono font-bold tracking-widest text-amber-700 select-all">{shownPasscode}</p>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-left">
               <p className="font-semibold mb-1">📱 WhatsApp Setup</p>

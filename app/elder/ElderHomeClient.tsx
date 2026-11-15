@@ -249,6 +249,13 @@ export default function ElderHomeClient({
         </div>
       </div>
 
+      {/* Subtle Family ID for Elder Device Setup */}
+      <div className="flex justify-center -mt-1 mb-1">
+        <span className="text-[11px] font-mono text-gray-500/80 bg-white/40 px-2.5 py-0.5 rounded-full backdrop-blur-xs select-all">
+          Family ID: {familyId}
+        </span>
+      </div>
+
       {/* ── Mascot & Greeting ──────────────────────────────────────────── */}
       <div className="flex flex-col items-center pt-4 pb-5 px-4">
         {mounted ? (
