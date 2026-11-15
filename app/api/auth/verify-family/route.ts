@@ -20,18 +20,26 @@ export const POST = withTiming('auth/verify-family', async (req: NextRequest) =>
   }
 
   const { familyId } = parsed.data;
-  const db = getAdminDb();
-  const familyDoc = await db.collection('families').doc(familyId).get();
+  try {
+    const db = getAdminDb();
+    const familyDoc = await db.collection('families').doc(familyId).get();
 
-  if (!familyDoc.exists) {
+    if (!familyDoc.exists) {
+      return NextResponse.json(
+        { error: 'We could not find an active workspace with this Family ID. Please verify the ID or register a new family workspace.' },
+        { status: 404 }
+      );
+    }
+
+    const data = familyDoc.data()!;
+    const elderName = data.elder?.nickname || data.elder?.name || data.elderNickname || 'Elder';
+
+    return NextResponse.json({ ok: true, elderName });
+  } catch (err: any) {
+    console.error('[verify-family] Firebase error:', err);
     return NextResponse.json(
-      { error: 'We could not find an active workspace with this Family ID. Please verify the ID or register a new family workspace.' },
-      { status: 404 }
+      { error: err?.message || 'Database error verifying family workspace.' },
+      { status: 500 }
     );
   }
-
-  const data = familyDoc.data()!;
-  const elderName = data.elder?.nickname || data.elder?.name || data.elderNickname || 'Elder';
-
-  return NextResponse.json({ ok: true, elderName });
 });

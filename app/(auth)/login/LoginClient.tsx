@@ -65,19 +65,23 @@ export default function LoginClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ familyId: trimmedId }),
       });
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // response was not JSON
+      }
 
       if (!res.ok) {
-        // Stop user here on Step 1 with a professional, helpful message
         setNotRegistered(true);
-        setError(data.error || `We couldn't locate a workspace with ID "${trimmedId}".`);
+        setError(data?.error || `Server returned error (${res.status}). Please check your setup.`);
         return;
       }
 
-      setElderName(data.elderName || 'Elder');
+      setElderName(data?.elderName || 'Elder');
       setStep('passcode');
-    } catch {
-      setError('Connection error. Please check your internet connection.');
+    } catch (err: any) {
+      setError(err?.message || 'Connection error. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
