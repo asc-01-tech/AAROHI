@@ -62,12 +62,17 @@ export default function SetupClient() {
           passcode,
         }),
       });
-      const data = await res.json();
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // response was not JSON
+      }
+
       if (!res.ok) {
-        let errorText = 'Setup failed. Please check all fields.';
-        if (typeof data.error === 'string') {
-          errorText = data.error;
-        } else if (data.error && typeof data.error === 'object') {
+        let errorText = data?.error || `Server error (${res.status}). Please check Vercel logs or database setup.`;
+        if (typeof data?.error === 'object') {
           errorText = data.error.message || (Array.isArray(data.error.issues) ? data.error.issues.map((i: any) => i.message).join(', ') : JSON.stringify(data.error));
         }
         throw new Error(errorText);

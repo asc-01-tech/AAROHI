@@ -45,97 +45,105 @@ export const POST = withTiming('auth/setup', async (req: NextRequest) => {
   }
   const data = parsed.data;
 
-  const db        = getAdminDb();
-  const adminAuth = getAdminAuth();
-  const familyRef = db.collection('families').doc(); // auto-id
-  const familyId  = familyRef.id;
+  try {
+    const db        = getAdminDb();
+    const adminAuth = getAdminAuth();
+    const familyRef = db.collection('families').doc(); // auto-id
+    const familyId  = familyRef.id;
 
-  // Caretaker member doc
-  const caretakerRef = familyRef.collection('members').doc();
-  // Elder "member" doc (virtual; elder's real identity is the family itself)
-  const elderRef = familyRef.collection('members').doc();
+    // Caretaker member doc
+    const caretakerRef = familyRef.collection('members').doc();
+    // Elder "member" doc (virtual; elder's real identity is the family itself)
+    const elderRef = familyRef.collection('members').doc();
 
-  const passcodeHash = await hashPasscode(data.passcode);
-  const nicknameSpoken = data.nicknameSpoken || data.nickname;
+    const passcodeHash = await hashPasscode(data.passcode);
+    const nicknameSpoken = data.nicknameSpoken || data.nickname;
 
-  const batch = db.batch();
+    const batch = db.batch();
 
-  // Family root
-  batch.set(familyRef, {
-    familyId,
-    name:         data.elderName + '\'s Family',
-    passcodeHash,
-    timezone:     'Asia/Kolkata',
-    createdAt:    FieldValue.serverTimestamp(),
-    elder: {
-      name:           data.elderName,
-      nickname:       data.nickname,
-      nicknameSpoken,
-      language:       data.language,
-      phone:          data.elderPhone || '',
-      email:          data.elderEmail || '',
-      conditions:     [],
-      allergies:      [],
-      bloodGroup:     '',
-    },
-    streak:      { current: 0, best: 0, lastFullDay: null },
-    plantLevel:  0,
-    caretakerPhone: data.caretakerPhone,
-    caretakerEmail: data.caretakerEmail,
-    settings: {
-      reminderLeadMinutes:      10,
-      missedGraceMinutes:       15,
-      escalateToFamilyAfterMinutes: 30,
-    },
-    loginAttempts: 0,
-    lockUntil:    null,
-  });
+    // Family root
+    batch.set(familyRef, {
+      familyId,
+      name:         data.elderName + '\'s Family',
+      passcodeHash,
+      timezone:     'Asia/Kolkata',
+      createdAt:    FieldValue.serverTimestamp(),
+      elder: {
+        name:           data.elderName,
+        nickname:       data.nickname,
+        nicknameSpoken,
+        language:       data.language,
+        phone:          data.elderPhone || '',
+        email:          data.elderEmail || '',
+        conditions:     [],
+        allergies:      [],
+        bloodGroup:     '',
+      },
+      streak:      { current: 0, best: 0, lastFullDay: null },
+      plantLevel:  0,
+      caretakerPhone: data.caretakerPhone,
+      caretakerEmail: data.caretakerEmail,
+      settings: {
+        reminderLeadMinutes:      10,
+        missedGraceMinutes:       15,
+        escalateToFamilyAfterMinutes: 30,
+      },
+      loginAttempts: 0,
+      lockUntil:    null,
+    });
 
-  // Elder member doc
-  batch.set(elderRef, {
-    name:          data.elderName,
-    role:          'elder',
-    phone:         data.elderPhone ?? '',
-    email:         data.elderEmail ?? '',
-    language:      data.language,
-    whatsappJoined: false,
-    createdAt:     FieldValue.serverTimestamp(),
-  });
+    // Elder member doc
+    batch.set(elderRef, {
+      name:          data.elderName,
+      role:          'elder',
+      phone:         data.elderPhone ?? '',
+      email:         data.elderEmail ?? '',
+      language:      data.language,
+      whatsappJoined: false,
+      createdAt:     FieldValue.serverTimestamp(),
+    });
 
-  // Caretaker member doc
-  batch.set(caretakerRef, {
-    name:          data.caretakerName,
-    role:          'caretaker',
-    phone:         data.caretakerPhone,
-    email:         data.caretakerEmail,
-    language:      data.language,
-    whatsappJoined: false,
-    createdAt:     FieldValue.serverTimestamp(),
-  });
+    // Caretaker member doc
+    batch.set(caretakerRef, {
+      name:          data.caretakerName,
+      role:          'caretaker',
+      phone:         data.caretakerPhone,
+      email:         data.caretakerEmail,
+      language:      data.language,
+      whatsappJoined: false,
+      createdAt:     FieldValue.serverTimestamp(),
+    });
 
-  await batch.commit();
+    await batch.commit();
 
-  // Mint Firebase custom token for the caretaker (who just set up)
-  const firebaseToken = await adminAuth.createCustomToken(caretakerRef.id, {
-    familyId,
-    memberId: caretakerRef.id,
-    role:     'caretaker',
-  });
+    // Mint Firebase custom token for the caretaker (who just set up)
+    const firebaseToken = await adminAuth.createCustomToken(caretakerRef.id, {
+      familyId,
+      memberId: caretakerRef.id,
+      role:     'caretaker',
+    });
 
-  // Session JWT
-  const sessionToken = await signSession({
-    familyId,
-    memberId: caretakerRef.id,
-    role:     'caretaker',
-  });
+    // Session JWT
+    const sessionToken = await signSession({
+      familyId,
+      memberId: caretakerRef.id,
+      role:     'caretaker',
+    });
 
-  const res = NextResponse.json({
-    ok: true,
-    familyId,
-    passcode:      data.passcode, // return once to show on screen
-    firebaseToken,
-  });
-  setSessionCookie(res, sessionToken);
-  return res;
+    const res = NextResponse.json({
+      ok: true,
+      familyId,
+      passcode:      data.passcode, // return once to show on screen
+      firebaseToken,
+    });
+    setSessionCookie(res, sessionToken);
+    return res;
+  } catch (err: any) {
+    console.error('[auth/setup] Error creating workspace:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Database error creating workspace. Please verify Firebase credentials in Vercel.' },
+      { status: 500 }
+    );
+  }
 });
 

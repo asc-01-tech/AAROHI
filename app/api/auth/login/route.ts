@@ -56,69 +56,77 @@ export const POST = withTiming('auth/login', async (req: NextRequest) => {
   }
   const { familyId, passcode, role } = parsed.data;
 
-  const db        = getAdminDb();
-  const adminAuth = getAdminAuth();
-  const familyRef = db.collection('families').doc(familyId);
+  try {
+    const db        = getAdminDb();
+    const adminAuth = getAdminAuth();
+    const familyRef = db.collection('families').doc(familyId);
 
-  // Rate limit check
-  const familySnap = await familyRef.get();
-  if (!familySnap.exists) {
-    return NextResponse.json({ error: 'Family not found' }, { status: 404 });
-  }
-  const family = familySnap.data()!;
-
-  const now = Date.now();
-  if (family.lockUntil && (family.lockUntil as Timestamp).toMillis() > now) {
-    const remaining = Math.ceil(((family.lockUntil as Timestamp).toMillis() - now) / 60000);
-    return NextResponse.json(
-      { error: `Too many attempts. Try again in ${remaining} minutes.` },
-      { status: 429 },
-    );
-  }
-
-  // Verify passcode
-  const valid = await verifyPasscode(passcode, family.passcodeHash);
-  if (!valid) {
-    const attempts = (family.loginAttempts ?? 0) + 1;
-    const update: Record<string, unknown> = { loginAttempts: attempts };
-    if (attempts >= MAX_ATTEMPTS) {
-      update.lockUntil = Timestamp.fromMillis(now + LOCKOUT_MS);
-      update.loginAttempts = 0;
+    // Rate limit check
+    const familySnap = await familyRef.get();
+    if (!familySnap.exists) {
+      return NextResponse.json({ error: 'Family not found' }, { status: 404 });
     }
-    await familyRef.update(update);
-    return NextResponse.json({ error: 'Incorrect passcode' }, { status: 401 });
-  }
+    const family = familySnap.data()!;
 
-  // Reset attempts on success
-  await familyRef.update({ loginAttempts: 0, lockUntil: null });
+    const now = Date.now();
+    if (family.lockUntil && (family.lockUntil as Timestamp).toMillis() > now) {
+      const remaining = Math.ceil(((family.lockUntil as Timestamp).toMillis() - now) / 60000);
+      return NextResponse.json(
+        { error: `Too many attempts. Try again in ${remaining} minutes.` },
+        { status: 429 },
+      );
+    }
 
-  // Find or pick a member matching the role
-  const membersSnap = await familyRef.collection('members')
-    .where('role', '==', role)
-    .limit(1)
-    .get();
+    // Verify passcode
+    const valid = await verifyPasscode(passcode, family.passcodeHash);
+    if (!valid) {
+      const attempts = (family.loginAttempts ?? 0) + 1;
+      const update: Record<string, unknown> = { loginAttempts: attempts };
+      if (attempts >= MAX_ATTEMPTS) {
+        update.lockUntil = Timestamp.fromMillis(now + LOCKOUT_MS);
+        update.loginAttempts = 0;
+      }
+      await familyRef.update(update);
+      return NextResponse.json({ error: 'Incorrect passcode' }, { status: 401 });
+    }
 
-  if (membersSnap.empty) {
+    // Reset attempts on success
+    await familyRef.update({ loginAttempts: 0, lockUntil: null });
+
+    // Find or pick a member matching the role
+    const membersSnap = await familyRef.collection('members')
+      .where('role', '==', role)
+      .limit(1)
+      .get();
+
+    if (membersSnap.empty) {
+      return NextResponse.json(
+        { error: `No ${role} account found for this family.` },
+        { status: 403 },
+      );
+    }
+    const memberDoc = membersSnap.docs[0];
+    const memberId  = memberDoc.id;
+
+    // Mint Firebase custom token
+    const firebaseToken = await adminAuth.createCustomToken(memberId, {
+      familyId,
+      memberId,
+      role,
+    });
+
+    // Session JWT
+    const sessionToken = await signSession({ familyId, memberId, role });
+
+    const res = NextResponse.json({ ok: true, firebaseToken, memberId, role });
+    setSessionCookie(res, sessionToken);
+    return res;
+  } catch (err: any) {
+    console.error('[auth/login] Error logging in:', err);
     return NextResponse.json(
-      { error: `No ${role} account found for this family.` },
-      { status: 403 },
+      { error: err?.message || 'Database error during login. Please check server logs.' },
+      { status: 500 }
     );
   }
-  const memberDoc = membersSnap.docs[0];
-  const memberId  = memberDoc.id;
-
-  // Mint Firebase custom token
-  const firebaseToken = await adminAuth.createCustomToken(memberId, {
-    familyId,
-    memberId,
-    role,
-  });
-
-  // Session JWT
-  const sessionToken = await signSession({ familyId, memberId, role });
-
-  const res = NextResponse.json({ ok: true, firebaseToken, memberId, role });
-  setSessionCookie(res, sessionToken);
-  return res;
 });
 

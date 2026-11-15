@@ -46,19 +46,27 @@ export const POST = withTiming('auth/verify-passcode', async (req: NextRequest) 
   }
 
   const { familyId, passcode } = parsed.data;
-  const db = getAdminDb();
-  const familyDoc = await db.collection('families').doc(familyId).get();
+  try {
+    const db = getAdminDb();
+    const familyDoc = await db.collection('families').doc(familyId).get();
 
-  if (!familyDoc.exists) {
-    return NextResponse.json({ error: 'Family not found' }, { status: 404 });
+    if (!familyDoc.exists) {
+      return NextResponse.json({ error: 'Family not found' }, { status: 404 });
+    }
+
+    const family = familyDoc.data()!;
+    const valid = await verifyPasscode(passcode, family.passcodeHash);
+
+    if (!valid) {
+      return NextResponse.json({ error: 'Incorrect 6-digit passcode. Please try again.' }, { status: 401 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    console.error('[verify-passcode] Error:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Server error verifying passcode.' },
+      { status: 500 }
+    );
   }
-
-  const family = familyDoc.data()!;
-  const valid = await verifyPasscode(passcode, family.passcodeHash);
-
-  if (!valid) {
-    return NextResponse.json({ error: 'Incorrect 6-digit passcode. Please try again.' }, { status: 401 });
-  }
-
-  return NextResponse.json({ ok: true });
 });
