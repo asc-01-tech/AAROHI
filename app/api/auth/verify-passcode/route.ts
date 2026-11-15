@@ -47,23 +47,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Valid 6-digit passcode is required' }, { status: 400 });
   }
 
-  const { familyId, passcode } = parsed.data;
+  const { familyId: rawId, passcode } = parsed.data;
   try {
-    const db = getAdminDb();
-    const familyDoc = await db.collection('families').doc(familyId).get();
+    const { resolveFamily } = await import('@/lib/resolveFamily');
+    const resolved = await resolveFamily(rawId);
 
-    if (!familyDoc.exists) {
-      return NextResponse.json({ error: 'Family not found' }, { status: 404 });
+    if (!resolved) {
+      return NextResponse.json({ error: 'Family workspace not found' }, { status: 404 });
     }
 
-    const family = familyDoc.data()!;
+    const family = resolved.data;
     const valid = await verifyPasscode(passcode, family.passcodeHash);
 
     if (!valid) {
       return NextResponse.json({ error: 'Incorrect 6-digit passcode. Please try again.' }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, familyId: resolved.familyId });
   } catch (err: any) {
     console.error('[verify-passcode] Error:', err);
     return NextResponse.json(

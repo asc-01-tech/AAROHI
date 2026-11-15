@@ -24,6 +24,9 @@ import {
   ClipboardList,
   Copy,
   Check,
+  Lock,
+  Key,
+  AtSign,
 } from 'lucide-react';
 import { useCareData, DoseEvent, Medication, Appointment } from '@/components/CareDataProvider';
 import AdherenceRing from '@/components/AdherenceRing';
@@ -37,6 +40,7 @@ import { type Locale, LOCALE_NAMES } from '@/lib/i18n';
 
 interface CareHomeClientProps {
   familyId: string;
+  initialUsername?: string;
   memberId: string;
   role: 'elder' | 'caretaker' | 'family';
   elderName: string;
@@ -52,6 +56,7 @@ type TabType = 'overview' | 'meds' | 'records' | 'appointments' | 'activity' | '
 
 export default function CareHomeClient({
   familyId,
+  initialUsername = '',
   memberId,
   role,
   elderName,
@@ -65,6 +70,102 @@ export default function CareHomeClient({
   const router = useRouter();
   const { doses, meds, appointments, changeRequests, loading } = useCareData();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  // Username & Handle state
+  const [currentUsername, setCurrentUsername] = useState(initialUsername);
+  const displayHandle = currentUsername ? `@${currentUsername}` : familyId;
+
+  // Change Username Modal State
+  const [usernameModalOpen, setUsernameModalOpen] = useState(false);
+  const [newUsernameInput, setNewUsernameInput] = useState(initialUsername);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameSuccess, setUsernameSuccess] = useState('');
+
+  // Change Passcode Modal State
+  const [passcodeModalOpen, setPasscodeModalOpen] = useState(false);
+  const [currentPasscodeInput, setCurrentPasscodeInput] = useState('');
+  const [newPasscodeInput, setNewPasscodeInput] = useState('');
+  const [confirmPasscodeInput, setConfirmPasscodeInput] = useState('');
+  const [passcodeSaving, setPasscodeSaving] = useState(false);
+  const [passcodeError, setPasscodeError] = useState('');
+  const [passcodeSuccess, setPasscodeSuccess] = useState('');
+
+  const handleChangeUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newUsernameInput.trim().toLowerCase().replace(/^@/, '');
+    if (clean.length < 3) {
+      setUsernameError('Username must be at least 3 characters');
+      return;
+    }
+    setUsernameSaving(true);
+    setUsernameError('');
+    setUsernameSuccess('');
+    try {
+      const res = await fetch('/api/family/update-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: clean }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setUsernameError(data.error || 'Failed to update username');
+        return;
+      }
+      setCurrentUsername(data.username);
+      setUsernameSuccess(`Username updated to @${data.username}!`);
+      setTimeout(() => {
+        setUsernameModalOpen(false);
+        setUsernameSuccess('');
+      }, 1200);
+    } catch {
+      setUsernameError('Network error. Please try again.');
+    } finally {
+      setUsernameSaving(false);
+    }
+  };
+
+  const handleChangePasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPasscodeInput.length !== 6) {
+      setPasscodeError('New passcode must be exactly 6 numeric digits');
+      return;
+    }
+    if (newPasscodeInput !== confirmPasscodeInput) {
+      setPasscodeError('New passcodes do not match');
+      return;
+    }
+    setPasscodeSaving(true);
+    setPasscodeError('');
+    setPasscodeSuccess('');
+    try {
+      const res = await fetch('/api/family/update-passcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPasscode: currentPasscodeInput,
+          newPasscode: newPasscodeInput,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasscodeError(data.error || 'Failed to update passcode');
+        return;
+      }
+      setPasscodeSuccess('Passcode successfully changed!');
+      setCurrentPasscodeInput('');
+      setNewPasscodeInput('');
+      setConfirmPasscodeInput('');
+      setTimeout(() => {
+        setPasscodeModalOpen(false);
+        setPasscodeSuccess('');
+      }, 1200);
+    } catch {
+      setPasscodeError('Network error. Please try again.');
+    } finally {
+      setPasscodeSaving(false);
+    }
+  };
 
   // Medication modal state
   const [medModalOpen, setMedModalOpen] = useState(false);
@@ -113,7 +214,7 @@ export default function CareHomeClient({
   const handleCopyFamilyId = () => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(familyId);
+        navigator.clipboard.writeText(displayHandle);
         setCopiedFamilyId(true);
         setTimeout(() => setCopiedFamilyId(false), 2500);
       }
@@ -289,17 +390,17 @@ export default function CareHomeClient({
           </button>
         </div>
 
-        {/* Visible Family ID in Top Bar */}
+        {/* Visible Family Handle in Top Bar */}
         <div className="mt-2.5 flex items-center justify-between bg-amber-50/90 border border-amber-200/90 rounded-xl px-3 py-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider shrink-0">Family ID:</span>
-            <span className="text-xs font-mono font-black text-amber-950 truncate select-all">{familyId}</span>
+            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider shrink-0">Family:</span>
+            <span className="text-xs font-bold text-amber-950 truncate select-all">{displayHandle}</span>
           </div>
           <button
             onClick={handleCopyFamilyId}
             className="ml-2 shrink-0 flex items-center gap-1 text-[11px] font-bold bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-2 py-0.5 rounded-lg transition active:scale-95"
-            title="Copy Family ID"
-            aria-label="Copy Family ID"
+            title="Copy Family Handle"
+            aria-label="Copy Family Handle"
           >
             {copiedFamilyId ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-amber-800" />}
             <span>{copiedFamilyId ? 'Copied!' : 'Copy'}</span>
@@ -312,25 +413,25 @@ export default function CareHomeClient({
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
-            {/* Family Circle ID Banner */}
+            {/* Family Circle Handle Banner */}
             <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 rounded-3xl p-4 text-white shadow-md shadow-amber-500/15">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider font-bold text-amber-100 flex items-center gap-1.5">
-                    <span>🔑</span> Family Circle ID
+                    <span>✨</span> Family Circle Handle
                   </p>
-                  <p className="text-xl font-mono font-black tracking-wider text-white mt-0.5 select-all">{familyId}</p>
+                  <p className="text-xl font-black tracking-tight text-white mt-0.5 select-all">{displayHandle}</p>
                 </div>
                 <button
                   onClick={handleCopyFamilyId}
                   className="bg-white/20 hover:bg-white/30 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl backdrop-blur-sm transition flex items-center gap-1.5 border border-white/25 shadow-xs"
                 >
                   {copiedFamilyId ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedFamilyId ? 'Copied!' : 'Copy ID'}</span>
+                  <span>{copiedFamilyId ? 'Copied!' : 'Copy Handle'}</span>
                 </button>
               </div>
               <p className="text-xs text-amber-100 mt-2 leading-relaxed">
-                Share this <strong>Family ID</strong> and your 6-digit passcode with your family & elder to log in on their phones.
+                Share your handle <strong>{displayHandle}</strong> and your 6-digit passcode with your family & elder to log in on their phones.
               </p>
             </div>
 
@@ -687,32 +788,81 @@ export default function CareHomeClient({
           <div className="space-y-4">
             <h2 className="font-bold text-lg text-gray-900">Family & App Settings</h2>
 
-            {/* Family Circle ID Card */}
+            {/* Family Circle Handle Card */}
+            <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <AtSign className="w-4 h-4 text-amber-500" /> Family Username (@handle)
+                </span>
+                <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                  Instagram Style
+                </span>
+              </h3>
+              <div className="space-y-2 text-gray-600">
+                <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3">
+                  <div className="min-w-0">
+                    <span className="text-[11px] text-gray-400 block font-medium">Your Family Handle:</span>
+                    <span className="text-base font-black text-amber-950 truncate block select-all">
+                      {displayHandle}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleCopyFamilyId}
+                    className="shrink-0 text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+                    title="Copy Handle"
+                  >
+                    {copiedFamilyId ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedFamilyId ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  All family members and elders can type this username to log in easily on any device.
+                </p>
+                <button
+                  onClick={() => {
+                    setNewUsernameInput(currentUsername || '');
+                    setUsernameError('');
+                    setUsernameSuccess('');
+                    setUsernameModalOpen(true);
+                  }}
+                  className="w-full mt-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Change Family Username (@handle)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Login Passcode Card */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
               <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-amber-500" /> Family Circle Details
+                <Lock className="w-4 h-4 text-amber-500" /> Security & 6-Digit Passcode
               </h3>
-              <div className="text-sm space-y-2 text-gray-600">
-                <div>
-                  <span className="text-xs text-gray-400 block font-medium">Family ID (used by all members to log in):</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-sm font-mono font-bold text-amber-900 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl select-all">
-                      {familyId}
-                    </code>
-                    <button
-                      onClick={handleCopyFamilyId}
-                      className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-xs"
-                      title="Copy Family ID"
-                    >
-                      {copiedFamilyId ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedFamilyId ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 pt-1">
-                  Share this ID with your family so they can select their role and join your care circle.
-                </p>
+              <p className="text-xs text-gray-500">
+                The 6-digit passcode is shared by all family members to access this circle.
+              </p>
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-2xl p-3">
+                <span className="text-sm font-mono tracking-widest text-gray-400 font-bold select-none">
+                  ● ● ● ● ● ●
+                </span>
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                  Active
+                </span>
               </div>
+              <button
+                onClick={() => {
+                  setCurrentPasscodeInput('');
+                  setNewPasscodeInput('');
+                  setConfirmPasscodeInput('');
+                  setPasscodeError('');
+                  setPasscodeSuccess('');
+                  setPasscodeModalOpen(true);
+                }}
+                className="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2"
+              >
+                <Key className="w-3.5 h-3.5" />
+                <span>Change 6-Digit Passcode</span>
+              </button>
             </div>
 
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
@@ -857,6 +1007,163 @@ export default function CareHomeClient({
         currentLocale={userLocale}
         onSelectLocale={handleSelectLocale}
       />
+
+      {/* Change Username Modal */}
+      {usernameModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleChangeUsername}
+            className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl border border-amber-100"
+          >
+            <div className="text-center">
+              <span className="text-3xl">✨</span>
+              <h3 className="font-black text-gray-900 text-lg mt-1">Change Family Handle</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Choose an Instagram-style handle for your circle (e.g. @sharma_family)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">New Handle</label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold text-amber-500 select-none">@</span>
+                <input
+                  type="text"
+                  required
+                  value={newUsernameInput}
+                  onChange={(e) => {
+                    setNewUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''));
+                    setUsernameError('');
+                  }}
+                  placeholder="e.g. sharma_family"
+                  className="w-full border-2 border-amber-200 rounded-2xl pl-8 pr-4 py-2.5 text-base font-bold text-gray-800 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">Letters, numbers, underscores, or hyphens (3-30 chars)</p>
+            </div>
+
+            {usernameError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                {usernameError}
+              </div>
+            )}
+
+            {usernameSuccess && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-bold">
+                ✓ {usernameSuccess}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setUsernameModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100 border border-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={usernameSaving || !newUsernameInput.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 shadow-sm"
+              >
+                {usernameSaving ? 'Saving…' : 'Save Handle'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Change Passcode Modal */}
+      {passcodeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleChangePasscode}
+            className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl border border-amber-100"
+          >
+            <div className="text-center">
+              <span className="text-3xl">🔐</span>
+              <h3 className="font-black text-gray-900 text-lg mt-1">Change Family Passcode</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Enter your current 6-digit passcode and pick a new one
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Current 6-Digit Passcode</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={currentPasscodeInput}
+                  onChange={(e) => setCurrentPasscodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="● ● ● ● ● ●"
+                  className="w-full border-2 border-gray-200 rounded-2xl px-4 py-2.5 text-center font-mono text-xl tracking-widest focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">New 6-Digit Passcode</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={newPasscodeInput}
+                  onChange={(e) => setNewPasscodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="New 6 digits"
+                  className="w-full border-2 border-amber-200 rounded-2xl px-4 py-2.5 text-center font-mono text-xl tracking-widest focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Confirm New Passcode</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={confirmPasscodeInput}
+                  onChange={(e) => setConfirmPasscodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Confirm 6 digits"
+                  className="w-full border-2 border-amber-200 rounded-2xl px-4 py-2.5 text-center font-mono text-xl tracking-widest focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            {passcodeError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                {passcodeError}
+              </div>
+            )}
+
+            {passcodeSuccess && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-bold">
+                ✓ {passcodeSuccess}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPasscodeModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100 border border-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={passcodeSaving || newPasscodeInput.length !== 6 || confirmPasscodeInput.length !== 6}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 shadow-sm"
+              >
+                {passcodeSaving ? 'Updating…' : 'Update Passcode'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 px-3 py-2 flex justify-around items-center z-30 shadow-lg">

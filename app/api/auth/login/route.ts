@@ -59,15 +59,15 @@ export async function POST(req: NextRequest) {
   const { familyId, passcode, role } = parsed.data;
 
   try {
-    const db        = getAdminDb();
-    const familyRef = db.collection('families').doc(familyId);
-
-    // Rate limit check
-    const familySnap = await familyRef.get();
-    if (!familySnap.exists) {
+    const { resolveFamily } = await import('@/lib/resolveFamily');
+    const resolved = await resolveFamily(familyId);
+    if (!resolved) {
       return NextResponse.json({ error: 'Family not found' }, { status: 404 });
     }
-    const family = familySnap.data()!;
+
+    const { familyId: resolvedFamilyId, data: family, familyDoc } = resolved;
+    const db = getAdminDb();
+    const familyRef = db.collection('families').doc(resolvedFamilyId);
 
     const now = Date.now();
     if (family.lockUntil && (family.lockUntil as Timestamp).toMillis() > now) {
@@ -111,15 +111,15 @@ export async function POST(req: NextRequest) {
 
     // Mint Firebase custom token
     const firebaseToken = createCustomToken(memberId, {
-      familyId,
+      familyId: resolvedFamilyId,
       memberId,
       role,
     });
 
     // Session JWT
-    const sessionToken = await signSession({ familyId, memberId, role });
+    const sessionToken = await signSession({ familyId: resolvedFamilyId, memberId, role });
 
-    const res = NextResponse.json({ ok: true, firebaseToken, memberId, role });
+    const res = NextResponse.json({ ok: true, firebaseToken, memberId, role, familyId: resolvedFamilyId });
     setSessionCookie(res, sessionToken);
     return res;
   } catch (err: any) {

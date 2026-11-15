@@ -25,6 +25,7 @@ export default function SetupClient() {
   const [elderName, setElderName] = useState('');
   const [nickname, setNickname] = useState('');
   const [nicknameSpoken, setNicknameSpoken] = useState('');
+  const [username, setUsername] = useState('');
   const [language, setLanguage] = useState('en-IN');
   const [elderPhone, setElderPhone] = useState('');
   const [elderEmail, setElderEmail] = useState('');
@@ -33,13 +34,26 @@ export default function SetupClient() {
   const [caretakerEmail, setCaretakerEmail] = useState('');
   const [passcode, setPasscode] = useState('');
   const [familyId, setFamilyId] = useState('');
+  const [shownUsername, setShownUsername] = useState('');
   const [shownPasscode, setShownPasscode] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Auto-fill nicknameSpoken when nickname changes (default: same text)
+  // Auto-fill nicknameSpoken and username when nickname/elderName changes
+  function handleElderName(val: string) {
+    setElderName(val);
+    if (!username) {
+      const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (slug) setUsername(`${slug}_family`);
+    }
+  }
+
   function handleNickname(val: string) {
     setNickname(val);
     if (!nicknameSpoken) setNicknameSpoken(val);
+    if (!username && val) {
+      const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (slug) setUsername(`${slug}_circle`);
+    }
   }
 
   async function handleSubmit() {
@@ -54,6 +68,7 @@ export default function SetupClient() {
           elderName: elderName.trim(),
           nickname: nickname.trim(),
           nicknameSpoken: (nicknameSpoken || nickname).trim(),
+          username: username.trim() || undefined,
           language,
           elderPhone: elderPhone.trim() || undefined,
           elderEmail: elderEmail.trim() || undefined,
@@ -88,6 +103,7 @@ export default function SetupClient() {
       }
 
       setFamilyId(data.familyId);
+      setShownUsername(data.username || username.trim() || data.familyId);
       setShownPasscode(data.passcode);
       setStep('done');
     } catch (e: unknown) {
@@ -116,11 +132,24 @@ export default function SetupClient() {
             <h2 className="text-xl font-bold text-gray-800">👴 About the Elder</h2>
             <div>
               <label className={labelClass}>Full Name</label>
-              <input className={inputClass} value={elderName} onChange={e => setElderName(e.target.value)} placeholder="e.g. Ramesh Sharma" />
+              <input className={inputClass} value={elderName} onChange={e => handleElderName(e.target.value)} placeholder="e.g. Ramesh Sharma" />
             </div>
             <div>
               <label className={labelClass}>Nickname (what family calls them)</label>
               <input className={inputClass} value={nickname} onChange={e => handleNickname(e.target.value)} placeholder="e.g. Aba, Aaji, Dadaji" />
+            </div>
+            <div>
+              <label className={labelClass}>Family Handle (@username)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500 select-none">@</span>
+                <input
+                  className={`${inputClass} pl-9 font-semibold text-gray-800`}
+                  value={username}
+                  onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                  placeholder="e.g. sharma_family"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Like an Instagram handle. Your entire family will log in using this name!</p>
             </div>
             <div>
               <label className={labelClass}>Nickname in native script (for voice)</label>
@@ -215,34 +244,48 @@ export default function SetupClient() {
           <div className="text-center space-y-4">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold text-green-700">Workspace Created!</h2>
-            <p className="text-gray-600">Share these details with your family:</p>
-            <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500 font-semibold">FAMILY ID</p>
-                <button
-                  onClick={() => {
-                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                      navigator.clipboard.writeText(familyId);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }
-                  }}
-                  className="text-xs font-bold text-amber-800 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition active:scale-95"
-                >
-                  {copied ? '✓ Copied!' : '📋 Copy ID'}
-                </button>
+            <p className="text-gray-600">Share your Family Handle with everyone:</p>
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-4 text-left shadow-sm">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                    FAMILY USERNAME (@HANDLE)
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(`@${shownUsername || familyId}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                    className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition active:scale-95"
+                  >
+                    {copied ? '✓ Copied!' : '📋 Copy Handle'}
+                  </button>
+                </div>
+                <p className="text-2xl font-black text-amber-950 tracking-tight break-all select-all">
+                  @{shownUsername || familyId}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">Family members log in using this Instagram-style handle</p>
               </div>
-              <p className="text-lg font-mono font-bold text-gray-800 break-all select-all">{familyId}</p>
-              <p className="text-sm text-gray-500 font-semibold mt-3">PASSCODE</p>
-              <p className="text-4xl font-mono font-bold tracking-widest text-amber-700 select-all">{shownPasscode}</p>
+
+              <div className="pt-3 border-t border-amber-200/60">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
+                  6-DIGIT PASSCODE
+                </p>
+                <p className="text-4xl font-mono font-black tracking-widest text-amber-700 select-all">
+                  {shownPasscode}
+                </p>
+              </div>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-700 text-left">
               <p className="font-semibold mb-1">📱 WhatsApp Setup</p>
-              <p>Send <strong>"join &lt;sandbox-code&gt;"</strong> to <strong>+1 415 523 8886</strong> on WhatsApp to receive medication alerts. Get the sandbox code from your Twilio console.</p>
+              <p>Send <strong>"join &lt;sandbox-code&gt;"</strong> to <strong>+1 415 523 8886</strong> on WhatsApp to receive medication alerts.</p>
             </div>
             <button
               onClick={() => router.replace('/care')}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xl rounded-2xl py-4"
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xl rounded-2xl py-4 shadow-lg shadow-amber-500/20"
             >
               Go to Dashboard 🏠
             </button>

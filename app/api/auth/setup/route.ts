@@ -17,6 +17,7 @@ const SetupSchema = z.object({
   elderName:        z.string().min(1, 'Elder name is required').max(60),
   nickname:         z.string().min(1, 'Nickname is required').max(30),
   nicknameSpoken:   z.string().max(60).optional().or(z.literal('')),
+  username:         z.string().max(30).optional().or(z.literal('')),
   language:         z.enum(['en-IN', 'hi-IN', 'mr-IN']),
   passcode:         z.string().length(6, 'Passcode must be 6 digits').regex(/^\d{6}$/, 'Passcode must be 6 numeric digits'),
   caretakerName:    z.string().min(1, 'Caretaker name is required').max(60),
@@ -25,6 +26,26 @@ const SetupSchema = z.object({
   elderPhone:       z.string().max(20).optional().or(z.literal('')),
   elderEmail:       z.string().email('Please enter a valid elder email address').optional().or(z.literal('')),
 });
+
+function slugifyUsername(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/^@/, '')
+    .replace(/[^a-z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 30);
+}
+
+function generateDefaultUsername(elderName: string, nickname: string): string {
+  const base = (nickname || elderName)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const rand = Math.floor(100 + Math.random() * 900);
+  return `${base || 'family'}_circle_${rand}`;
+}
 
 async function hashPasscode(passcode: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
@@ -52,6 +73,17 @@ export async function POST(req: NextRequest) {
     const familyRef = db.collection('families').doc(); // auto-id
     const familyId  = familyRef.id;
 
+    // Determine unique Instagram-style username
+    let finalUsername = slugifyUsername(data.username || '');
+    if (!finalUsername || finalUsername.length < 3) {
+      finalUsername = generateDefaultUsername(data.elderName, data.nickname);
+    }
+    // Check if taken
+    const existingSnap = await db.collection('families').where('username', '==', finalUsername).limit(1).get();
+    if (!existingSnap.empty) {
+      finalUsername = `${finalUsername.slice(0, 24)}_${Math.floor(100 + Math.random() * 900)}`;
+    }
+
     // Caretaker member doc
     const caretakerRef = familyRef.collection('members').doc();
     // Elder "member" doc (virtual; elder's real identity is the family itself)
@@ -65,6 +97,7 @@ export async function POST(req: NextRequest) {
     // Family root
     batch.set(familyRef, {
       familyId,
+      username:     finalUsername,
       name:         data.elderName + '\'s Family',
       passcodeHash,
       timezone:     'Asia/Kolkata',
@@ -134,6 +167,7 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({
       ok: true,
       familyId,
+      username:      finalUsername,
       passcode:      data.passcode, // return once to show on screen
       firebaseToken,
     });

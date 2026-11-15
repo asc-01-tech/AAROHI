@@ -42,6 +42,7 @@ interface Props {
   streak: Streak;
   plantLevel: number;
   familyId: string;
+  username?: string;
   memberId: string;
 }
 
@@ -64,6 +65,7 @@ export default function ElderHomeClient({
   streak,
   plantLevel,
   familyId,
+  username = '',
   memberId,
 }: Props) {
   const { doses, hugs, changeRequests } = useElderData();
@@ -249,10 +251,10 @@ export default function ElderHomeClient({
         </div>
       </div>
 
-      {/* Subtle Family ID for Elder Device Setup */}
+      {/* Subtle Family Handle for Elder Device Setup */}
       <div className="flex justify-center -mt-1 mb-1">
-        <span className="text-[11px] font-mono text-gray-500/80 bg-white/40 px-2.5 py-0.5 rounded-full backdrop-blur-xs select-all">
-          Family ID: {familyId}
+        <span className="text-[11px] font-bold text-gray-600/90 bg-white/50 px-3 py-0.5 rounded-full backdrop-blur-xs select-all">
+          Circle: {username ? `@${username}` : familyId}
         </span>
       </div>
 

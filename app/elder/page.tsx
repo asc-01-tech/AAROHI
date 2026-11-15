@@ -66,6 +66,7 @@ export default async function ElderPage() {
       streak={streak}
       plantLevel={plantLevel}
       familyId={familyId}
+      username={(data.username as string | undefined) ?? ''}
       memberId={memberId}
     />
   );

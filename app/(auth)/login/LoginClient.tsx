@@ -85,6 +85,9 @@ export default function LoginClient() {
       }
 
       setElderName(data?.elderName || 'Elder');
+      if (data?.familyId) {
+        setFamilyId(data.familyId);
+      }
       setStep('passcode');
     } catch (err: any) {
       setError(err?.message || 'Connection error. Please check your internet connection.');
@@ -349,19 +352,19 @@ export default function LoginClient() {
             {loginMode === 'passcode' && (
               <>
                 <div>
-                  <label className="block text-base font-semibold text-gray-700 mb-2">Family ID</label>
+                  <label className="block text-base font-semibold text-gray-700 mb-2">Family Handle or ID</label>
                   <input
                     ref={idInputRef}
                     type="text"
                     value={familyId}
                     onChange={e => { setFamilyId(e.target.value); setError(''); setNotRegistered(false); }}
                     onKeyDown={e => e.key === 'Enter' && handleVerifyFamily()}
-                    placeholder="Your Family ID"
-                    className="w-full border-2 border-amber-200 rounded-2xl px-4 py-3 text-lg focus:outline-none focus:border-amber-400"
+                    placeholder="e.g. @sharma_family"
+                    className="w-full border-2 border-amber-200 rounded-2xl px-4 py-3 text-lg focus:outline-none focus:border-amber-400 font-medium"
                     autoComplete="off"
                     spellCheck={false}
                   />
-                  <p className="text-xs text-gray-400 mt-1">Your caretaker has this ID from setup.</p>
+                  <p className="text-xs text-gray-400 mt-1">Enter your family&apos;s handle (e.g. @sharma_family) or Family ID.</p>
                 </div>
 
                 <button

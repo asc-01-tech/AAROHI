@@ -26,10 +26,12 @@ export default async function CarePage() {
   const streak = (family.streak as { current: number; best: number } | undefined) ?? { current: 0, best: 0 };
   const plantLevel = (family.plantLevel as number | undefined) ?? 0;
   const caretakerPhone = (family.caretakerPhone as string | undefined) ?? '';
+  const username = (family.username as string | undefined) ?? '';
 
   return (
     <CareHomeClient
       familyId={session.familyId}
+      initialUsername={username}
       memberId={session.memberId}
       role={session.role}
       elderName={elder?.name ?? 'Elder'}
