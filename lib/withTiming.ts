@@ -14,17 +14,18 @@ export function withTiming(routeName: string, handler: Handler): Handler {
       const res = await handler(req, ctx);
       status = res.status;
       return res;
+    } catch (err: any) {
+      console.error(`[${routeName}] Unhandled error:`, err);
+      return NextResponse.json(
+        { error: err?.message || 'Internal Server Error', route: routeName },
+        { status: 500 }
+      );
     } finally {
       const ms = Math.round(performance.now() - start);
       const slow = ms > 500 && !routeName.includes('gemini') && !routeName.includes('scan') && !routeName.includes('report');
       console.log(
         `[${routeName}] ${status} — ${ms}ms${slow ? ' ⚠️  SLOW' : ''}`,
       );
-      // Server-Timing header helps DevTools in dev
-      if (process.env.NODE_ENV !== 'production') {
-        // We can't mutate a Response after it's created;
-        // callers that need the header should use withTimingHeaders directly.
-      }
     }
   };
 }
