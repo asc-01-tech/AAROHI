@@ -18,7 +18,7 @@ function getGenAI(): GoogleGenAI {
   return genAIInstance;
 }
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
 // ─── generateJSON ─────────────────────────────────────────────────────────────
 

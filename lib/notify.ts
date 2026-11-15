@@ -28,7 +28,21 @@ function getTwilio(): twilio.Twilio | null {
   const token = process.env.TWILIO_TOKEN;
   if (!sid || !token) return null;
   if (!twilioClient) {
-    twilioClient = twilio(sid, token);
+    try {
+      if (sid.startsWith('SK')) {
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        if (!accountSid) {
+          console.warn('[Twilio] API Key SID (SK...) requires TWILIO_ACCOUNT_SID (AC...)');
+          return null;
+        }
+        twilioClient = twilio(sid, token, { accountSid });
+      } else {
+        twilioClient = twilio(sid, token);
+      }
+    } catch (err) {
+      console.error('[Twilio] Failed to initialize client:', err);
+      return null;
+    }
   }
   return twilioClient;
 }
